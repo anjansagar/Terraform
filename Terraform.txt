@@ -1,0 +1,177 @@
+## Terraform Scripts for Ec2_Alerts:
+
+data "aws_caller_identity" "current" {}
+
+resource "aws_cloudwatch_event_rule" "EventRule" {
+  name = "aws-instance-changes"
+  description = "A CloudWatch Event Rule that detects changes to EC2 Instances and publishes change events to an SNS topic for notification."
+  is_enabled = true
+    event_pattern = jsonencode({ "source" : ["aws.ec2"] })
+}
+
+resource "aws_cloudwatch_event_target" "TargetForEventRule" {
+  rule = aws_cloudwatch_event_rule.EventRule.name
+  target_id = "target-id1"
+  arn = aws_sns_topic.topic.arn
+  
+}
+
+# Sns Topic
+resource "aws_sns_topic" "topic" {
+name = "Myrule"
+}
+resource "aws_sns_topic_subscription" "subscription" {
+topic_arn = aws_sns_topic.topic.arn
+protocol = "email"
+endpoint = "example.com"
+}
+
+## 
+
+resource "aws_sns_topic" "sns_topic_rds"{
+    name = "rds-event-notifier"
+	
+ 
+}
+
+
+resource "aws_sns_topic_subscription" "rds_subscription" {
+  count = length(var.emails)
+  topic_arn = aws_sns_topic.sns_topic_rds.arn
+  protocol = "email"
+  endpoint = var.emails[count.index]
+}
+
+resource "aws_sns_topic_policy" "sns_topic_rds_policy" {
+  arn = aws_sns_topic.sns_topic_rds.arn
+  policy = data.aws_iam_policy_document.rds_sns_policy_document.json
+}
+
+data "aws_iam_policy_document" "rds_sns_policy_document" {
+  policy_id = "__default_policy_ID"
+
+  statement {
+    actions = [
+      "SNS:Subscribe",
+      "SNS:SetTopicAttributes",
+      "SNS:RemovePermission",
+      "SNS:Receive",
+      "SNS:Publish",
+      "SNS:ListSubscriptionsByTopic",
+      "SNS:GetTopicAttributes",
+      "SNS:DeleteTopic",
+      "SNS:AddPermission",
+    ]
+
+    effect = "Allow"
+
+    principals {
+      type        = "AWS"
+      identifiers = ["*"]
+    }
+
+    resources = [
+      aws_sns_topic.sns_topic_rds.arn,
+    ]
+
+    sid = "__default_statement_ID"
+  }
+}
+
+resource "aws_db_event_subscription" "rds_event_subscription_instance" {
+  name              = "rds-event-sub-instance"
+  sns_topic         = aws_sns_topic.sns_topic_rds.arn
+  source_type       = "db-instance"
+  enabled           = true
+  
+  event_categories  = [
+    "availability",
+    "backup",
+    "configuration change",
+    "creation",
+    "deletion",
+    "failover",
+    "failure",
+    "low storage",
+    "maintenance",
+    "notification",
+    "read replica",
+    "recovery",
+    "restoration",
+  ]
+}
+
+resource "aws_db_event_subscription" "rds_event_subscription_sg" {
+  name              = "rds-event-sub-sg"
+  sns_topic         = aws_sns_topic.sns_topic_rds.arn
+  source_type       = "db-security-group"
+  enabled           = true
+
+  event_categories  = [
+    "configuration change",
+    "failure",
+    
+  ]
+}
+
+
+resource "aws_db_event_subscription" "rds_event_subscription_pg" {
+  name              = "rds-event-sub-pg"
+  sns_topic         = aws_sns_topic.sns_topic_rds.arn
+  source_type       = "db-parameter-group"
+  enabled           = true
+
+  event_categories  = [
+    "configuration change",
+    
+  ]
+
+}
+  
+resource "aws_db_event_subscription" "rds_event_subscription_snapshot" {
+  name              = "rds-event-sub-snap"
+  sns_topic         = aws_sns_topic.sns_topic_rds.arn
+  source_type       = "db-snapshot"
+  enabled           = true
+
+  event_categories  = [
+    "creation",
+    "deletion",
+	"notification",
+	"restoration",
+  ]
+
+}
+
+resource "aws_db_event_subscription" "rds_event_subscription_cluster" {
+  name              = "rds-event-sub-cluster"
+  sns_topic         = aws_sns_topic.sns_topic_rds.arn
+  source_type       = "db-cluster"
+  enabled           = true
+
+  event_categories  = [
+	"configuration change",
+    "creation",
+    "deletion",
+	"failover",
+	"failure",
+	"global-failover",
+	"maintenance",
+	"notification",
+	
+  ]
+
+}
+
+resource "aws_db_event_subscription" "rds_event_subscription_cs" {
+  name              = "rds-event-sub-cs"
+  sns_topic         = aws_sns_topic.sns_topic_rds.arn
+  source_type       = "db-cluster-snapshot"
+  enabled           = true
+
+  event_categories  = [
+    "backup",
+	"notification",
+	
+  ]
+}
